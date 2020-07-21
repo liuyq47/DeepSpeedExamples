@@ -12,6 +12,15 @@ def get_argument_parser():
         help="pointer to the configuration file of the experiment",
         type=str,
         required=True)
+
+    parser.add_argument(
+        "--input_dir",
+        default=None,
+        type=str,
+        required=True,
+        help="The output directory where the model checkpoints will be written."
+    )
+
     parser.add_argument(
         "--output_dir",
         default=None,
@@ -28,11 +37,20 @@ def get_argument_parser():
         help=
         "The maximum total input sequence length after WordPiece tokenization. Sequences "
         "longer than this will be truncated, and sequences shorter than this will be padded."
-    )
+   )
+
+    parser.add_argument(
+        "--num_steps_per_checkpoint",
+        default=200,
+        type=int,
+        help=
+        "The maximum total input sequence length after WordPiece tokenization. Sequences "
+        "longer than this will be truncated, and sequences shorter than this will be padded."
+   )
     parser.add_argument(
         "--max_predictions_per_seq",
         "--max_pred",
-        default=80,
+        default=20,
         type=int,
         help=
         "The maximum number of masked tokens in a sequence to be predicted.")
@@ -48,6 +66,7 @@ def get_argument_parser():
         help=
         "Whether to lower case the input text. True for uncased models, False for cased models."
     )
+
     parser.add_argument("--local_rank",
                         type=int,
                         default=-1,
