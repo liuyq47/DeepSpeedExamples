@@ -154,7 +154,9 @@ def train(args,
     model.train()
 
     epoch_step = 0
-    for _, batch_index in enumerate(tqdm(dataset_iterator, smoothing=1)):
+    train_iter = tqdm(dataset_iterator, desc="Iteration",
+                      disable=False, smoothing=1) if herring.get_rank() == 0 else dataset_iterator
+    for _, batch_index in enumerate(train_iter):
         try:
             start = time.time()
             batch = pretrain_dataset_provider.get_batch(batch_index)
