@@ -479,7 +479,17 @@ def run(args, model, optimizer, start_epoch):
 
         # Save ckpts according to "--ckpt_to_save" option,
         # e.g. "--ckpt_to_save 160 161" to save epoch 160 and 161.
-        if args.ckpt_to_save is None or (index + 1) in args.ckpt_to_save:
+       # if args.ckpt_to_save is None or (index + 1) in args.ckpt_to_save:
+
+
+        post = time.time()
+        logger.info(f"Time for shard {index + 1}: {post-pre} seconds")
+
+        current_global_step = global_step - last_global_step_from_restore
+        if is_time_to_exit(args=args, global_steps=current_global_step):
+            print(
+                f'Warning: Early training termination due to max steps limit, epoch={index+1}, global_step={current_global_step}'
+            )
             logger.info(
                 f"Saving a checkpointing of the model for epoch: {index+1}")
 
@@ -490,15 +500,6 @@ def run(args, model, optimizer, start_epoch):
                              epoch=index + 1,
                              last_global_step=global_step,
                              last_global_data_samples=global_data_samples)
-
-        post = time.time()
-        logger.info(f"Time for shard {index + 1}: {post-pre} seconds")
-
-        current_global_step = global_step - last_global_step_from_restore
-        if is_time_to_exit(args=args, global_steps=current_global_step):
-            print(
-                f'Warning: Early training termination due to max steps limit, epoch={index+1}, global_step={current_global_step}'
-            )
             break
 
 
