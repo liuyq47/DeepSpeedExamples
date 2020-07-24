@@ -156,6 +156,7 @@ def train(args,
     epoch_step = 0
     for _, batch_index in enumerate(tqdm(dataset_iterator, smoothing=1)):
         try:
+            start = time.time()
             batch = pretrain_dataset_provider.get_batch(batch_index)
             batch = tuple(t.to(args.device) for t in batch)  # Move to GPU
 
@@ -178,7 +179,7 @@ def train(args,
                         args, config, global_step, optimizer)
 
                 report_step_metrics(args, lr_this_step, unscaled_loss,
-                                    global_step, current_data_sample_count)
+                                    global_step, current_data_sample_count, time.time()-start)
 
                 model.network.step()
 
@@ -244,7 +245,7 @@ def update_learning_rate(args, config, current_global_step, optimizer):
     return lr_this_step
 
 
-def report_step_metrics(args, lr, loss, step, data_sample_count):
+def report_step_metrics(args, lr, loss, step, data_sample_count, step_time):
     ##### Record the LR against global_step on tensorboard #####
     if (not args.no_cuda
             and dist.get_rank() == 0) or (args.no_cuda
@@ -259,8 +260,8 @@ def report_step_metrics(args, lr, loss, step, data_sample_count):
     ##### Recording  done. #####
 
     if (step + 1) % args.print_steps == 0 and master_process(args):
-        print('bing_bert_progress: step={}, loss={}, lr={}, sample_count={}'.
-              format(step + 1, loss, lr, data_sample_count))
+        print('bing_bert_progress: step={}, loss={}, lr={}, sample_count={}, step_time={}'.
+              format(step + 1, loss, lr, data_sample_count, step_time))
 
 
 def report_lamb_coefficients(args, optimizer):
