@@ -1058,7 +1058,7 @@ class BertForPreTrainingPreLN(BertPreTrainedModel):
         if masked_lm_labels is not None and next_sentence_label is not None:
             # filter out all masked labels.
             masked_token_indexes = torch.nonzero(
-                (masked_lm_labels + 1).view(-1)).view(-1)
+                (masked_lm_labels + 1).view(-1), as_tuple=False).view(-1)
             prediction_scores, seq_relationship_score = self.cls(
                 sequence_output, pooled_output, masked_token_indexes)
             target = torch.index_select(masked_lm_labels.view(-1), 0,
