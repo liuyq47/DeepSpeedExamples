@@ -17,7 +17,7 @@ def get_argument_parser():
         "--input_dir",
         default=None,
         type=str,
-        required=True,
+        required=False,
         help="The output directory where the model checkpoints will be written."
     )
 

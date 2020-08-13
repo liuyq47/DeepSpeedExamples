@@ -19,7 +19,7 @@ from turing.dataset import QADataset, RankingDataset, PreTrainingDataset, QAFine
 from turing.dataset import QABatch, RankingBatch, PretrainBatch, PretrainDataType
 from turing.sources import WikiPretrainingDataCreator, PretrainingDataCreator, TokenInstance
 from pytorch_pretrained_bert.tokenization import BertTokenizer
-from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear, warmup_linear_decay_exp, warmup_exp_decay_exp, warmup_exp_decay_poly
+from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear, warmup_linear_decay_exp, warmup_exp_decay_exp, warmup_exp_decay_poly, warmup_poly_const
 from turing.sources import WikiPretrainingDataCreator, PretrainingDataCreator, TokenInstance
 from utils import get_argument_parser, is_time_to_exit
 from concurrent.futures import ProcessPoolExecutor
@@ -224,6 +224,7 @@ def train(args, index, model, optimizer, worker_init, pool, finetune=False):
     #     worker.start()
 
         epoch_step = 0
+        iteration_time = 0;
         for step, batch in enumerate(train_iter):
 
             try:
@@ -253,8 +254,10 @@ def train(args, index, model, optimizer, worker_init, pool, finetune=False):
 
 
                     model.network.step()
+                    iteration_time += time.time() - start_time
                     report_step_metrics(args, lr_this_step, unscaled_loss,
-                                        global_step, current_data_sample_count, time.time()-start_time)
+                                        global_step, current_data_sample_count, iteration_time)
+                    iteration_time = 0
 
                     report_lamb_coefficients(args, optimizer)
                     global_step += 1
@@ -262,6 +265,7 @@ def train(args, index, model, optimizer, worker_init, pool, finetune=False):
                 else:
                     # Call DeepSpeed engine step on micro steps
                     model.network.step()
+                    iteration_time += time.time() - start_time
 
             except StopIteration:
                 continue
@@ -322,6 +326,10 @@ def update_learning_rate(args, config, current_global_step, optimizer):
             "learning_rate"] * warmup_exp_decay_poly(
                 global_step_for_lr, config["training"]["total_training_steps"],
                 config["training"]["warmup_proportion"])
+    elif args.lr_schedule == "LANS":
+        lr_this_step = config["training"]["learning_rate"]*warmup_poly_const(
+                global_step_for_lr, config["training"]["total_training_steps"],
+                config["training"]["warmup_proportion"], config["training"]["const_proportion"])
     else:
         lr_this_step = config["training"][
             "learning_rate"] * warmup_linear_decay_exp(

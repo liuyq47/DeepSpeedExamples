@@ -20,6 +20,12 @@ def get_argument_parser():
         required=True,
         help="The output directory where the model checkpoints will be written."
     )
+    parser.add_argument(
+        "--input_dir",
+        default=None,
+        type=str,
+        help="The output directory where the model checkpoints will be written."
+    )
 
     # Optional Params
     parser.add_argument(
