@@ -38,6 +38,7 @@ dist.get_rank = herring.get_rank
 dist.get_world_size = herring.get_world_size
 
 global_step = 0
+micro_step = 0
 global_data_samples = 0
 last_global_step_from_restore = 0
 
@@ -176,6 +177,7 @@ class pretraining_dataset(Dataset):
 
 def train(args, index, model, module, optimizer, worker_init, pool, finetune=False):
     global global_step
+    global micro_step
     global global_data_samples
     global last_global_step_from_restore
 
@@ -233,6 +235,7 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
         #     worker.start()
 
         epoch_step = 0
+        start_time = time.time()
         for step, batch in enumerate(train_iter):
 
             try:
@@ -242,7 +245,6 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
                 #     batch = next(dataloaders[dataset_type])
 
                 batch = tuple(t.to(args.device) for t in batch)  # Move to GPU
-                start_time = time.time()
 
                 # Calculate forward pass
                 #loss = model.network(batch)
@@ -253,8 +255,7 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
 
                 #model.network.backward(loss)
                 optimizer.backward(loss)
-
-                if model.network.is_gradient_accumulation_boundary():
+                if (micro_step + 1) % args.gradient_accumulation_steps == 0:
                     if args.fp16:
                         # modify learning rate with special warm up BERT uses
                         # if args.fp16 is False, BertAdam is used that handles this automatically
@@ -270,10 +271,9 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
 
                     if overflow:
                         continue
-
                     report_step_metrics(args, lr_this_step, unscaled_loss,
                                         global_step, current_data_sample_count, time.time() - start_time)
-
+                    start_time = time.time()
                     report_lamb_coefficients(args, optimizer)
                     global_step += 1
                     epoch_step += 1
@@ -282,6 +282,7 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
                     #model.network.step()
                     optimizer.step()
                     optimizer.zero_grad()
+                micro_step +=1
 
 
             except StopIteration:
@@ -615,7 +616,7 @@ def main():
     start = time.time()
     args = construct_arguments()
     model, optimizer, module = prepare_model_optimizer(args)
-    module = DDP(module)
+    module = DDP(module, gradient_accumulation_steps=args.gradient_accumulation_steps)
     start_epoch = 0
     if not None in [args.load_training_checkpoint, args.load_checkpoint_id]:
         start_epoch = load_checkpoint(args, model)
