@@ -280,8 +280,8 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
                 else:
                     # Call DeepSpeed engine step on micro steps
                     #model.network.step()
-                    optimizer.step()
-                    optimizer.zero_grad()
+                    #optimizer.step()
+                    #optimizer.zero_grad()
                 micro_step +=1
 
 
