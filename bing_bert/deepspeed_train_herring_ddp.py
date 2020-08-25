@@ -277,7 +277,7 @@ def train(args, index, model, module, optimizer, worker_init, pool, finetune=Fal
                     report_lamb_coefficients(args, optimizer)
                     global_step += 1
                     epoch_step += 1
-                else:
+                #else:
                     # Call DeepSpeed engine step on micro steps
                     #model.network.step()
                     #optimizer.step()
