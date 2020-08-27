@@ -79,7 +79,19 @@ def warmup_exp_decay_poly(global_step,
     if x < warmup:
         return (x / warmup)**warm_degree
     return (1.0 - x)**degree
-
+def warmup_poly_const(global_step,
+                      total_steps,
+                      warmup=0.002,
+                      const = 0,
+                      warm_degree=1.5,
+                      degree=2.0):
+    progress = global_step / total_steps
+    if progress < warmup:
+        return progress / warmup
+    elif progress < warmup + const:
+        return 1
+    else:
+        return max((1.0-progress)/(1.0 - (warmup + const)),0)
 
 SCHEDULES = {
     'warmup_cosine': warmup_cosine,
