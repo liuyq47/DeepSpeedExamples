@@ -616,7 +616,7 @@ def main():
     start = time.time()
     args = construct_arguments()
     model, optimizer, module = prepare_model_optimizer(args)
-    module = DDP(module, gradient_accumulation_steps=args.gradient_accumulation_steps)
+    module = DDP(module)
     start_epoch = 0
     if not None in [args.load_training_checkpoint, args.load_checkpoint_id]:
         start_epoch = load_checkpoint(args, model)
