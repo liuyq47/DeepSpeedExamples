@@ -20,7 +20,7 @@ from turing.dataset import QABatch, RankingBatch, PretrainBatch, PretrainDataTyp
 from turing.sources import WikiPretrainingDataCreator, PretrainingDataCreator, TokenInstance
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from pytorch_pretrained_bert.optimization import BertAdam, warmup_linear, warmup_linear_decay_exp, warmup_exp_decay_exp, \
-    warmup_exp_decay_poly
+    warmup_exp_decay_poly, warmup_poly_const
 from turing.sources import WikiPretrainingDataCreator, PretrainingDataCreator, TokenInstance
 from utils_herring import get_argument_parser, is_time_to_exit
 from concurrent.futures import ProcessPoolExecutor
@@ -343,6 +343,10 @@ def update_learning_rate(args, config, current_global_step, optimizer):
                            "learning_rate"] * warmup_exp_decay_poly(
             global_step_for_lr, config["training"]["total_training_steps"],
             config["training"]["warmup_proportion"])
+    elif args.lr_schedule == "LANS":
+        lr_this_step = config["training"]["learning_rate"]*warmup_poly_const(
+                global_step_for_lr, config["training"]["total_training_steps"],
+                config["training"]["warmup_proportion"], config["training"]["const_proportion"])
     else:
         lr_this_step = config["training"][
                            "learning_rate"] * warmup_linear_decay_exp(
