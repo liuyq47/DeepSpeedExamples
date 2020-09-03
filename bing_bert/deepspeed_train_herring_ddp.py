@@ -52,21 +52,46 @@ class WorkerInitObj(object):
         random.seed(self.seed + id)
 
 
-def checkpoint_model(PATH, ckpt_id, model, epoch, last_global_step,
+def checkpoint_model(PATH, ckpt_id, model, module, optimizer, epoch, last_global_step,
                      last_global_data_samples, **kwargs):
     """Utility function for checkpointing model + optimizer dictionaries
        The main purpose for this is to be able to resume training from that instant again
     """
+    global global_steps
     checkpoint_state_dict = {
         'epoch': epoch,
         'last_global_step': last_global_step,
         'last_global_data_samples': last_global_data_samples
     }
     # Add extra kwargs too
-    checkpoint_state_dict.update(kwargs)
+    try:
+        checkpoint_state_dict.update(kwargs)
+        if herring.get_rank ==0:
+            model.network._create_checkpoint_files(PATH, ckpt_id)
+            save_path =  model.network._get_ckpt_name(PATH, ckpt_id)
+            state = {
+                'module':
+                    module.state_dict(),
+                'optimizer':
+                    optimizer.state_dict(),
+                'lr_scheduler':
+                    None,
+                'csr_tensor_module_names':
+                    None,
+                'skipped_steps':
+                    0,
+                'global_steps':
+                    global_steps,
+            }
+            torch.save(state, save_path)
+    except:
+        logger.error(
+            f'Failed Saving model checkpoint to {PATH} with tag {ckpt_id}')
 
-    success = model.network.save_checkpoint(PATH, ckpt_id,
-                                            checkpoint_state_dict)
+    # success = model.network.save_checkpoint(PATH, ckpt_id,
+    #                                         checkpoint_state_dict)
+
+
     status_msg = 'checkpointing: PATH={}, ckpt_id={}'.format(PATH, ckpt_id)
     if success:
         logging.info(f"Success {status_msg}")
@@ -620,10 +645,10 @@ def main():
     start = time.time()
     args = construct_arguments()
     model, optimizer, module = prepare_model_optimizer(args)
-    module = DDP(module)
     start_epoch = 0
     if not None in [args.load_training_checkpoint, args.load_checkpoint_id]:
         start_epoch = load_checkpoint(args, model)
+    module = DDP(model.network.module, gradient_accumulation_steps=args.gradient_accumulation_steps)
     run(args, model, module, optimizer, start_epoch)
     elapsed = time.time() - start
     logger = args.logger
