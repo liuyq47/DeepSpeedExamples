@@ -57,46 +57,55 @@ def checkpoint_model(PATH, ckpt_id, model, module, optimizer, epoch, last_global
     """Utility function for checkpointing model + optimizer dictionaries
        The main purpose for this is to be able to resume training from that instant again
     """
-    global global_steps
+    global global_step
     checkpoint_state_dict = {
         'epoch': epoch,
         'last_global_step': last_global_step,
         'last_global_data_samples': last_global_data_samples
     }
     # Add extra kwargs too
-    try:
-        checkpoint_state_dict.update(kwargs)
-        if herring.get_rank ==0:
-            model.network._create_checkpoint_files(PATH, ckpt_id)
-            save_path =  model.network._get_ckpt_name(PATH, ckpt_id)
-            state = {
-                'module':
-                    module.state_dict(),
-                'optimizer':
-                    optimizer.state_dict(),
-                'lr_scheduler':
-                    None,
-                'csr_tensor_module_names':
-                    None,
-                'skipped_steps':
-                    0,
-                'global_steps':
-                    global_steps,
-            }
-            torch.save(state, save_path)
-    except:
-        logger.error(
-            f'Failed Saving model checkpoint to {PATH} with tag {ckpt_id}')
+    success=False
 
+    checkpoint_state_dict.update(kwargs)
+    if herring.get_rank() == 0:
+        ckpt_name = os.path.join(PATH,ckpt_id, 'mp_rank_{:02d}'.format(herring.get_rank()) + '_model_states.pt')
+        dirname = os.path.dirname(ckpt_name)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        save_path = ckpt_name
+        state = {
+            'module':
+                module.module.state_dict(),
+            'optimizer':
+                optimizer.state_dict(),
+            'lr_scheduler':
+                None,
+            'csr_tensor_module_names':
+                None,
+            'skipped_steps':
+                0,
+            'global_steps':
+                global_step,
+            'dp_world_size':
+                herring.get_world_size(),
+            'mp_world_size':
+                1,
+        }
+        state.update(checkpoint_state_dict)
+        torch.save(state, save_path)
+        success = True
+
+        # logging.warning(
+        #     f'Failed Saving model checkpoint to {PATH} with tag {ckpt_id}')
     # success = model.network.save_checkpoint(PATH, ckpt_id,
     #                                         checkpoint_state_dict)
 
 
-    status_msg = 'checkpointing: PATH={}, ckpt_id={}'.format(PATH, ckpt_id)
-    if success:
-        logging.info(f"Success {status_msg}")
-    else:
-        logging.warning(f"Failure {status_msg}")
+        status_msg = 'checkpointing: PATH={}, ckpt_id={}'.format(PATH, ckpt_id)
+        if success:
+            logging.info(f"Success {status_msg}")
+        else:
+            logging.warning(f"Failure {status_msg}")
     return
 
 
@@ -106,6 +115,7 @@ def load_training_checkpoint(args, model, PATH, ckpt_id):
     """
     logger = args.logger
     _, checkpoint_state_dict = model.network.load_checkpoint(PATH, ckpt_id)
+    print(checkpoint_state_dict)
     epoch = checkpoint_state_dict['epoch']
     last_global_step = checkpoint_state_dict['last_global_step']
     last_global_data_samples = checkpoint_state_dict[
@@ -629,6 +639,8 @@ def run(args, model, module, optimizer, start_epoch):
                              ckpt_id='epoch{}_step{}'.format(
                                  index + 1, current_global_step),
                              model=model,
+                             module=module,
+                             optimizer=optimizer,
                              epoch=index + 1,
                              last_global_step=global_step,
                              last_global_data_samples=global_data_samples)
@@ -648,7 +660,8 @@ def main():
     start_epoch = 0
     if not None in [args.load_training_checkpoint, args.load_checkpoint_id]:
         start_epoch = load_checkpoint(args, model)
-    module = DDP(model.network.module, gradient_accumulation_steps=args.gradient_accumulation_steps)
+    # module = DDP(model.network.module, gradient_accumulation_steps=args.gradient_accumulation_steps)
+    module = DDP(model.network.module)
     run(args, model, module, optimizer, start_epoch)
     elapsed = time.time() - start
     logger = args.logger
